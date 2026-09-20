@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IRA Land Conversion Calculator</title>
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --panel: #ffffff;
+    --ink: #1b1a17;
+    --muted: #6b6760;
+    --line: #e2dfd8;
+    --accent: #7a5c2e;
+    --accent-soft: #f2ece1;
+    --good: #2f6b46;
+    --bad: #9a3b2c;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #171614;
+      --panel: #201e1b;
+      --ink: #eceae5;
+      --muted: #a29c92;
+      --line: #35322d;
+      --accent: #d3ae74;
+      --accent-soft: #2b2721;
+      --good: #7fc79c;
+      --bad: #e29181;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #171614;
+    --panel: #201e1b;
+    --ink: #eceae5;
+    --muted: #a29c92;
+    --line: #35322d;
+    --accent: #d3ae74;
+    --accent-soft: #2b2721;
+    --good: #7fc79c;
+    --bad: #e29181;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 32px 16px 72px;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.05rem; margin: 32px 0 12px; letter-spacing: -0.005em; }
+  .sub { color: var(--muted); margin: 0 0 28px; max-width: 62ch; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px 18px;
+  }
+  label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 5px; }
+  input {
+    width: 100%;
+    padding: 9px 10px;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .tile {
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .tile .k { font-size: 0.78rem; color: var(--muted); }
+  .tile .v {
+    font-size: 1.28rem;
+    font-variant-numeric: tabular-nums;
+    margin-top: 4px;
+    letter-spacing: -0.02em;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  button {
+    font: inherit;
+    padding: 8px 14px;
+    color: var(--ink);
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  .empty { color: var(--muted); margin: 16px 0 0; }
+  .empty[hidden] { display: none; }
+  #results[hidden] { display: none; }
+  .scroll { overflow-x: auto; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  caption { text-align: left; color: var(--muted); font-size: 0.85rem; padding-bottom: 8px; }
+  th, td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    text-align: right;
+    white-space: nowrap;
+  }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--ink);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tfoot td {
+    font-weight: 600;
+    border-top: 1px solid var(--ink);
+    border-bottom: none;
+    padding-top: 10px;
+  }
+  .cmp td:first-child { color: var(--muted); }
+  .win { color: var(--good); }
+  .lose { color: var(--bad); }
+  .note { color: var(--muted); font-size: 0.86rem; margin-top: 12px; max-width: 78ch; }
+  .err {
+    color: var(--bad);
+    background: var(--panel);
+    border: 1px solid var(--bad);
+    border-radius: 7px;
+    padding: 10px 12px;
+    margin-top: 14px;
+  }
+  .err[hidden] { display: none; }
+  footer { margin-top: 36px; color: var(--muted); font-size: 0.84rem; max-width: 78ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>IRA land purchase &amp; Roth conversion calculator</h1>
+  <p class="sub">Models moving a traditional IRA into land inside a self-directed IRA, then converting an equal slice
+  of the acreage into a Roth IRA each year. Uses 2026 federal married-filing-jointly brackets.</p>
+
+  <div class="panel">
+    <div class="grid">
+      <div>
+        <label for="startValue">Starting land value ($)</label>
+        <input id="startValue" type="number" min="0" step="1000" placeholder="e.g. 500000">
+      </div>
+      <div>
+        <label for="acres">Acreage</label>
+        <input id="acres" type="number" min="0.01" step="0.01" placeholder="e.g. 100">
+      </div>
+      <div>
+        <label for="startAge">Purchase age</label>
+        <input id="startAge" type="number" min="0" max="120" step="1" placeholder="e.g. 50">
+      </div>
+      <div>
+        <label for="endAge">Age conversions end</label>
+        <input id="endAge" type="number" min="1" max="121" step="1" placeholder="e.g. 60">
+      </div>
+      <div>
+        <label for="salary">Salary, MFJ ($/yr)</label>
+        <input id="salary" type="number" min="0" step="1000" placeholder="e.g. 150000">
+      </div>
+      <div>
+        <label for="rate">Land appreciation (%/yr)</label>
+        <input id="rate" type="number" step="0.1" placeholder="e.g. 3">
+      </div>
+      <div>
+        <label for="appraisal">Annual appraisal cost ($)</label>
+        <input id="appraisal" type="number" min="0" step="100" placeholder="e.g. 1500">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" id="loadExample">Load example scenario</button>
+      <button type="button" id="clearAll">Clear</button>
+    </div>
+    <div class="err" id="err" hidden></div>
+    <p class="empty" id="empty">Fill in the fields above to see the conversion schedule.</p>
+      <div class="tiles" id="tiles"></div>
+  </div>
+
+  <div id="results" hidden>
+  <h2>Year-by-year conversion schedule</h2>
+  <div class="scroll">
+    <table id="schedule">
+      <caption id="scheduleCaption"></caption>
+      <thead>
+        <tr>
+          <th>Age at conversion</th>
+          <th>Acres converted</th>
+          <th>$/acre that year</th>
+          <th>Slice value</th>
+          <th>Tax owed that year</th>
+          <th>Age slice becomes usable</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot></tfoot>
+    </table>
+  </div>
+  <p class="note" id="usableNote"></p>
+
+  <h2>Comparison to a lump-sum withdrawal at purchase age</h2>
+  <div class="scroll">
+    <table class="cmp" id="compare">
+      <thead>
+        <tr><th></th><th id="lumpHead">Lump sum</th><th id="planHead">Conversion plan</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="note" id="compareNote"></p>
+
+  <h2>All-in cost including appraisals</h2>
+  <div class="scroll">
+    <table id="allin">
+      <thead><tr><th></th><th>Amount</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  </div>
+
+  <footer>
+    These figures are general, publicly available federal tax mechanics for 2026 — not personalized tax, legal, or
+    financial advice. State taxes, NIIT, deductions, credits, phase-outs, and custodian rules are not modeled.
+    Have a CPA, ERISA attorney, or fiduciary advisor review any real structure before acting on it.
+  </footer>
+</div>
+
+<script>
+// 2026 federal brackets, married filing jointly. [upper bound of bracket, marginal rate]
+var BRACKETS = [
+  [24800, 0.10],
+  [100800, 0.12],
+  [211100, 0.22],
+  [403300, 0.24],
+  [512450, 0.32],
+  [768700, 0.35],
+  [Infinity, 0.37]
+];
+
+var PENALTY_RATE = 0.10;   // early-withdrawal penalty before 59 1/2
+var PENALTY_FREE_AGE = 60; // conversions stop being subject to the 5-year rule here
+
+function taxOn(income) {
+  var tax = 0, floor = 0;
+  for (var i = 0; i < BRACKETS.length; i++) {
+    var cap = BRACKETS[i][0], rate = BRACKETS[i][1];
+    if (income <= floor) break;
+    tax += (Math.min(income, cap) - floor) * rate;
+    floor = cap;
+  }
+  return tax;
+}
+
+function money(n) {
+  return '$' + Math.round(n).toLocaleString('en-US');
+}
+function pct(n) {
+  return (n * 100).toFixed(1) + '%';
+}
+function acresFmt(n) {
+  return (Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+var FIELDS = ['startValue', 'acres', 'startAge', 'endAge', 'salary', 'rate', 'appraisal'];
+
+var EXAMPLE = {
+  startValue: 500000, acres: 100, startAge: 50,
+  endAge: 60, salary: 150000, rate: 3, appraisal: 1500
+};
+
+function num(id) {
+  var raw = document.getElementById(id).value.trim();
+  return raw === '' ? NaN : parseFloat(raw);
+}
+
+function blankCount() {
+  return FIELDS.filter(function (id) {
+    return document.getElementById(id).value.trim() === '';
+  }).length;
+}
+
+function readInputs() {
+  return {
+    startValue: num('startValue'),
+    acres: num('acres'),
+    startAge: Math.round(num('startAge')),
+    endAge: Math.round(num('endAge')),
+    salary: num('salary'),
+    rate: num('rate') / 100,
+    appraisal: num('appraisal')
+  };
+}
+
+function validate(v) {
+  if ([v.startValue, v.acres, v.startAge, v.endAge, v.salary, v.rate, v.appraisal].some(function (n) {
+    return !isFinite(n);
+  })) return 'Every field needs a number.';
+  if (v.startValue <= 0) return 'Starting land value must be greater than zero.';
+  if (v.acres <= 0) return 'Acreage must be greater than zero.';
+  if (v.endAge <= v.startAge) return 'The age conversions end must be later than the purchase age.';
+  if (v.salary < 0) return 'Salary cannot be negative.';
+  if (v.appraisal < 0) return 'Appraisal cost cannot be negative.';
+  return null;
+}
+
+function model(v) {
+  var years = v.endAge - v.startAge;           // one conversion per year, last at endAge - 1
+  var acresPerYear = v.acres / years;
+  var baseTax = taxOn(v.salary);
+  var rows = [];
+  var totalConverted = 0, totalTax = 0;
+
+  for (var i = 0; i < years; i++) {
+    var age = v.startAge + i;
+    var landValue = v.startValue * Math.pow(1 + v.rate, i);
+    var perAcre = landValue / v.acres;
+    var slice = landValue / years;             // equal fraction of the CURRENT appreciated value
+    var tax = taxOn(v.salary + slice) - baseTax;
+    totalConverted += slice;
+    totalTax += tax;
+    rows.push({
+      age: age,
+      acres: acresPerYear,
+      perAcre: perAcre,
+      slice: slice,
+      tax: tax,
+      usableAge: Math.min(age + 5, PENALTY_FREE_AGE)
+    });
+  }
+
+  var finalLandValue = v.startValue * Math.pow(1 + v.rate, years);
+  var appraisalTotal = v.appraisal * years;
+
+  // Lump sum: withdraw the full starting value at purchase age, ordinary income tax + 10% penalty.
+  var lumpTax = taxOn(v.salary + v.startValue) - baseTax;
+  var lumpPenalty = v.startValue * PENALTY_RATE;
+  var lumpTotal = lumpTax + lumpPenalty;
+
+  return {
+    years: years,
+    rows: rows,
+    totalConverted: totalConverted,
+    totalTax: totalTax,
+    finalLandValue: finalLandValue,
+    effectiveRate: totalTax / finalLandValue,
+    netKept: finalLandValue - totalTax,
+    appraisalTotal: appraisalTotal,
+    combinedCost: totalTax + appraisalTotal,
+    netAfterAppraisals: finalLandValue - totalTax - appraisalTotal,
+    allInRate: (totalTax + appraisalTotal) / finalLandValue,
+    lumpTax: lumpTax,
+    lumpPenalty: lumpPenalty,
+    lumpTotal: lumpTotal,
+    lumpKept: v.startValue - lumpTotal,
+    lumpLostShare: lumpTotal / v.startValue,
+    firstUsableAge: rows[0].usableAge
+  };
+}
+
+function fill(el, html) { document.getElementById(el).innerHTML = html; }
+
+function render() {
+  var err = document.getElementById('err');
+  var empty = document.getElementById('empty');
+  var results = document.getElementById('results');
+  var blanks = blankCount();
+
+  if (blanks > 0) {
+    // Nothing to compute yet — prompt rather than scold.
+    empty.textContent = blanks === FIELDS.length
+      ? 'Fill in the fields above to see the conversion schedule.'
+      : 'Fill in the remaining ' + blanks + (blanks === 1 ? ' field' : ' fields') + ' to see the schedule.';
+    empty.hidden = false;
+    err.hidden = true;
+    results.hidden = true;
+    document.getElementById('tiles').innerHTML = '';
+    return;
+  }
+  empty.hidden = true;
+
+  var v = readInputs();
+  var problem = validate(v);
+  if (problem) {
+    err.textContent = problem;
+    err.hidden = false;
+    results.hidden = true;
+    document.getElementById('tiles').innerHTML = '';
+    return;
+  }
+  err.hidden = true;
+  results.hidden = false;
+
+  var m = model(v);
+
+  fill('tiles', [
+    ['Land value at ' + v.endAge, money(m.finalLandValue)],
+    ['Total conversion tax', money(m.totalTax)],
+    ['Effective tax rate', pct(m.effectiveRate)],
+    ['Net kept', money(m.netKept)]
+  ].map(function (t) {
+    return '<div class="tile"><div class="k">' + t[0] + '</div><div class="v">' + t[1] + '</div></div>';
+  }).join(''));
+
+  document.getElementById('scheduleCaption').textContent =
+    'Converting ' + acresFmt(v.acres / m.years) + ' acres per year (1/' + m.years + ' of ' +
+    acresFmt(v.acres) + ' acres) from age ' + v.startAge + ' through ' + (v.endAge - 1) + '.';
+
+  document.querySelector('#schedule tbody').innerHTML = m.rows.map(function (r) {
+    return '<tr><td>' + r.age + '</td><td>' + acresFmt(r.acres) + '</td><td>' + money(r.perAcre) +
+      '</td><td>' + money(r.slice) + '</td><td>' + money(r.tax) + '</td><td>' + r.usableAge + '</td></tr>';
+  }).join('');
+
+  document.querySelector('#schedule tfoot').innerHTML =
+    '<tr><td>Totals</td><td>' + acresFmt(v.acres) + '</td><td></td><td>' + money(m.totalConverted) +
+    '</td><td>' + money(m.totalTax) + '</td><td></td></tr>';
+
+  document.getElementById('usableNote').textContent =
+    'Each slice clears its own 5-year mark at conversion age + 5, capped at ' + PENALTY_FREE_AGE +
+    ' — past 59½ the conversion 5-year rule no longer gates access. The first slice becomes usable at age ' +
+    m.firstUsableAge + '; the full ' + acresFmt(v.acres) + ' acres are available at ' + v.endAge + '.';
+
+  document.getElementById('lumpHead').textContent = 'Lump sum at ' + v.startAge;
+  document.getElementById('planHead').textContent = m.years + '-year Roth conversion plan';
+
+  document.querySelector('#compare tbody').innerHTML =
+    '<tr><td>Total tax + penalty</td><td>' + money(m.lumpTotal) + ' (incl. ' + money(m.lumpPenalty) +
+      ' 10% penalty)</td><td>' + money(m.totalTax) + ' (no penalty)</td></tr>' +
+    '<tr><td>% of value lost</td><td class="lose">' + pct(m.lumpLostShare) + '</td><td class="win">' +
+      pct(m.effectiveRate) + '</td></tr>' +
+    '<tr><td>Amount kept</td><td>' + money(m.lumpKept) + '</td><td>' + money(m.netKept) + '</td></tr>' +
+    '<tr><td>Access timing</td><td>Immediate, all at once</td><td>First ' + acresFmt(v.acres / m.years) +
+      ' acres usable at ' + m.firstUsableAge + '; full access by ' + v.endAge + '</td></tr>';
+
+  var taxGap = m.lumpTotal - m.totalTax;
+  var keptGap = m.netKept - m.lumpKept;
+  document.getElementById('compareNote').textContent =
+    'The gradual plan costs ' + money(Math.abs(taxGap)) + (taxGap >= 0 ? ' less' : ' more') +
+    ' in tax and penalty, and leaves ' + money(Math.abs(keptGap)) + (keptGap >= 0 ? ' more' : ' less') +
+    ' once ' + (v.rate * 100).toFixed(1) + '% appreciation through age ' + v.endAge +
+    ' is counted — in exchange for waiting on full access.';
+
+  document.querySelector('#allin tbody').innerHTML = [
+    ['Annual appraisal cost', money(v.appraisal)],
+    ['Total over ' + m.years + ' years', money(m.appraisalTotal)],
+    ['Total conversion tax', money(m.totalTax)],
+    ['Combined cost', money(m.combinedCost)],
+    ['Final land value at ' + v.endAge, money(m.finalLandValue)],
+    ['Net kept after tax + appraisals', money(m.netAfterAppraisals)],
+    ['Effective total cost', pct(m.allInRate) + ' of final value']
+  ].map(function (r) {
+    return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>';
+  }).join('');
+}
+
+Array.prototype.forEach.call(document.querySelectorAll('input'), function (el) {
+  el.addEventListener('input', render);
+});
+
+document.getElementById('loadExample').addEventListener('click', function () {
+  FIELDS.forEach(function (id) { document.getElementById(id).value = EXAMPLE[id]; });
+  render();
+});
+
+document.getElementById('clearAll').addEventListener('click', function () {
+  FIELDS.forEach(function (id) { document.getElementById(id).value = ''; });
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
